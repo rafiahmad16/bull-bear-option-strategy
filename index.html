@@ -92,7 +92,7 @@
 <script>
     var expiry = "{{ request.args.get('expiry') }}";
     localStorage.removeItem("response");
-    
+
 
     function getData() {
         $.ajax({
@@ -101,21 +101,25 @@
                 expiry: expiry
             },
             async: false,
-            url: "http://"+document.location.host+"/get-data/",
+            url: "http://" + document.location.host + "/get-data/",
             datatype: "json",
-            success: function(response) {
+            success: function (response) {
                 //do something with response data
-                $("#contractFor").html(response.symbol);
-                $("#symbolPrice").html(response.currentPrice);
-                /*if (expiry === '') {
-                    //addExpiryAndSpreadOptions(response);
-                }*/
-                addExpiryAndSpreadOptions(response);
-                localStorage.setItem('response', JSON.stringify(response));
-                createTable();
+                if (response.hasOwnProperty('status')) {
+                    alert("There is some error in nse api. data can not be updated.");
+                } else {
+                    $("#contractFor").html(response.symbol);
+                    $("#symbolPrice").html(response.currentPrice);
+                    /*if (expiry === '') {
+                        //addExpiryAndSpreadOptions(response);
+                    }*/
+                    addExpiryAndSpreadOptions(response);
+                    localStorage.setItem('response', JSON.stringify(response));
+                    createTable();
+                }
 
             },
-            error: function(xhr) {
+            error: function (xhr) {
                 //var json = $.parseJSON(result);
                 alert("Error");
             }
@@ -127,13 +131,13 @@
         response = JSON.parse(response);
         data = response.data;
         var allStrikes = [];
-        $.each(data, function(k, v) {
+        $.each(data, function (k, v) {
             allStrikes.push(v['strikePrice']);
         });
         //console.log(data);
         var closest = null;
         var goal = response.currentPrice;
-        $.each(allStrikes, function(i, v) {
+        $.each(allStrikes, function (i, v) {
             if (closest == null || Math.abs(v - goal) < Math.abs(closest - goal)) {
                 closest = v;
                 return;
@@ -162,7 +166,7 @@
         html += "<td class='warning'>" + lotSize + " Share Profit</td>";
         html += "</tr>";
         initialIndex = indexValue - range;
-        $.each(selectedStrikes, function(i, v) {
+        $.each(selectedStrikes, function (i, v) {
             html += "<tr>";
             html += "<td class='warning'>" + v['strikePrice'] + "</td>";
             //Call start
@@ -207,7 +211,7 @@
         expires = response.expires;
         var html = "";
         currentExpiry = "{{ request.args.get('expiry') }}";
-        $.each(expires, function(k, v) {
+        $.each(expires, function (k, v) {
             if (currentExpiry == v) {
                 s = "selected";
             } else {
@@ -221,7 +225,7 @@
         difference = data[1]['strikePrice'] - data[0]['strikePrice'];
         var html = "";
         currentSpread = "{{ request.args.get('spread') }}";
-        if(currentSpread == 'None'){
+        if (currentSpread == 'None') {
             currentSpread = $("#spread").val();
         }
         j = difference;
@@ -239,12 +243,12 @@
 
     }
 
-    $(document).ready(function() {
-        $("#expiry").on('change', function() {
+    $(document).ready(function () {
+        $("#expiry").on('change', function () {
             $("#inputForm").submit();
         });
 
-        $("#spread").on('change', function() {
+        $("#spread").on('change', function () {
             createTable();
         });
 
