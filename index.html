@@ -221,6 +221,9 @@
         difference = data[1]['strikePrice'] - data[0]['strikePrice'];
         var html = "";
         currentSpread = "{{ request.args.get('spread') }}";
+        if(currentSpread == 'None'){
+            currentSpread = $("#spread").val();
+        }
         j = difference;
         for (i = 0; i <= 5; i++) {
             if (currentSpread == j) {
@@ -246,7 +249,7 @@
         });
 
         getData();
-        setInterval(getData, 180000); //time in milliseconds
+        setInterval(getData, 300000); //time in milliseconds
 
         //currentPrice = data[0]['PE']['underlyingValue'];
 
