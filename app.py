@@ -20,14 +20,17 @@ def hello_world():
 def getData(expiry = None):
     returnDic = {}
     data = getNSEData()
+    if 'status' in data:
+        return data
     returnDic['expires'] = data['records']['expiryDates']
     if expiry is None:
         expiry = returnDic['expires'][0]
     expiryData = []
-    for d in data['records']['data']:
-        if d['expiryDate'] == expiry:
-            expiryData.append(d)
-    
+    if 'records' in data:
+        for d in data['records']['data']:
+            if d['expiryDate'] == expiry:
+                expiryData.append(d)
+        
     returnDic['symbol'] = 'NIFTY'
     returnDic['data'] = expiryData
     returnDic['currentPrice'] = expiryData[0]['CE']['underlyingValue']
@@ -41,6 +44,7 @@ def getNSEData():
     headers = getNSECookies()
     response = requests.request("GET", url, headers=headers)
     if is_json(response.text) is False:
+        print(response.text)
         return {'status': False, 'message': 'Invalid response in api'}
     return json.loads(response.text)
     
