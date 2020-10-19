@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Option Strategy Calculator</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <style>
+        tr>th {
+            text-align: center;
+        }
+
+        .ponter {
+            cursor: pointer;
+        }
+
+        .border1 {
+            border: 1px solid grey;
+            padding: 8px;
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <div class="container">
+        <div class="row">
+            <h2>Option Strategy</h2>
+            <form method="get" id='inputForm'>
+                <div class="col-md-12">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="contractFor">Contracts for => (<span id="symbolPrice"></span>)</label>
+                            <input type="text" class="form-control" value="NIFTY" id="contractFor">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="lotSize">Lot Size</label>
+                            <input type="text" class="form-control" value="75" id="lotSize">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="expiry">Expiry</label>
+                            <select class="form-control" name="expiry" id="expiry">
+
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="spread">Spread</label>
+                            <select class="form-control" name="spread" id="spread">
+
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+
+
+
+        <div class="row">
+            <h3>Detail</h3>
+            <div class="col-md-12">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th class="warning">Strike Price</th>
+                            <th colspan="5" class="warning">Bull Call Spread</th>
+                            <th colspan="5" class="warning">Bear Call Spread</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail">
+
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+
+
+<script>
+    var expiry = "{{ request.args.get('expiry') }}";
+    localStorage.removeItem("response");
+    
+
+    function getData() {
+        $.ajax({
+            type: "get",
+            data: {
+                expiry: expiry
+            },
+            async: false,
+            url: "http://"+document.location.host+"/get-data/",
+            datatype: "json",
+            success: function(response) {
+                //do something with response data
+                $("#contractFor").html(response.symbol);
+                $("#symbolPrice").html(response.currentPrice);
+                /*if (expiry === '') {
+                    //addExpiryAndSpreadOptions(response);
+                }*/
+                addExpiryAndSpreadOptions(response);
+                localStorage.setItem('response', JSON.stringify(response));
+                createTable();
+
+            },
+            error: function(xhr) {
+                //var json = $.parseJSON(result);
+                alert("Error");
+            }
+        });
+    }
+
+    function createTable() {
+        response = localStorage.getItem("response");
+        response = JSON.parse(response);
+        data = response.data;
+        var allStrikes = [];
+        $.each(data, function(k, v) {
+            allStrikes.push(v['strikePrice']);
+        });
+        //console.log(data);
+        var closest = null;
+        var goal = response.currentPrice;
+        $.each(allStrikes, function(i, v) {
+            if (closest == null || Math.abs(v - goal) < Math.abs(closest - goal)) {
+                closest = v;
+                return;
+            }
+        });
+        indexValue = allStrikes.indexOf(closest);
+        range = 7
+        selectedStrikes = data.slice(indexValue - range, indexValue + range);
+        var lotSize = $("#lotSize").val();
+        var spread = $("#spread option:selected").val();
+        spread = parseInt(spread);
+        var difference = data[1]['strikePrice'] - data[0]['strikePrice'];
+        steps = spread / difference;
+        html = "";
+        html += "<tr>";
+        html += "<td class='warning'>Strike</td>";
+        html += "<td class='warning'>LTP</td>";
+        html += "<td class='warning'>1 Share Loss</td>";
+        html += "<td class='warning'>1 Share Profit</td>";
+        html += "<td class='warning'>" + lotSize + " Share Loss</td>";
+        html += "<td class='warning'>" + lotSize + " Share Profit</td>";
+        html += "<td class='warning'>LTP</td>";
+        html += "<td class='warning'>1 Share Loss</td>";
+        html += "<td class='warning'>1 Share Profit</td>";
+        html += "<td class='warning'>" + lotSize + " Share Loss</td>";
+        html += "<td class='warning'>" + lotSize + " Share Profit</td>";
+        html += "</tr>";
+        initialIndex = indexValue - range;
+        $.each(selectedStrikes, function(i, v) {
+            html += "<tr>";
+            html += "<td class='warning'>" + v['strikePrice'] + "</td>";
+            //Call start
+            short = data[initialIndex + i + steps]['CE']['lastPrice'];
+            buy = data[initialIndex + i]['CE']['lastPrice'];
+            maxLoss = short - buy;
+            maxProfit = spread + maxLoss;
+            if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
+                c = "success";
+            } else {
+                c = "danger";
+            }
+            html += "<td class='info'>" + v['CE']['lastPrice'] + "</td>";
+            html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
+            html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
+            html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
+            html += "<td class='" + c + "'>" + (maxProfit * lotSize).toFixed(2) + "</td>";
+
+            //Put start
+            short = data[initialIndex + i - steps]['PE']['lastPrice'];
+            buy = data[initialIndex + i]['PE']['lastPrice'];
+            maxLoss = short - buy;
+            maxProfit = spread + maxLoss;
+            if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
+                c = "success";
+            } else {
+                c = "danger";
+            }
+            html += "<td class='info'>" + v['PE']['lastPrice'] + "</td>";
+            html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
+            html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
+            html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
+            html += "<td class='" + c + "'>" + (maxProfit * lotSize).toFixed(2) + "</td>";
+            html += "</tr>";
+
+        });
+        $("#detail").html(html);
+        //console.log(selectedStrikes);
+    }
+
+    function addExpiryAndSpreadOptions(response) {
+        expires = response.expires;
+        var html = "";
+        currentExpiry = "{{ request.args.get('expiry') }}";
+        $.each(expires, function(k, v) {
+            if (currentExpiry == v) {
+                s = "selected";
+            } else {
+                s = "";
+            }
+            html += "<option " + s + " value'" + v + "'>" + v + "</option>";
+        });
+        $("#expiry").html(html);
+
+        data = response.data;
+        difference = data[1]['strikePrice'] - data[0]['strikePrice'];
+        var html = "";
+        currentSpread = "{{ request.args.get('spread') }}";
+        j = difference;
+        for (i = 0; i <= 5; i++) {
+            if (currentSpread == j) {
+                s = "selected";
+            } else {
+                s = "";
+            }
+            html += "<option " + s + " value'" + j + "'>" + j + "</option>";
+            j = j + difference;
+            //console.log(j);
+        };
+        $("#spread").html(html);
+
+    }
+
+    $(document).ready(function() {
+        $("#expiry").on('change', function() {
+            $("#inputForm").submit();
+        });
+
+        $("#spread").on('change', function() {
+            createTable();
+        });
+
+        getData();
+        setInterval(getData, 180000); //time in milliseconds
+
+        //currentPrice = data[0]['PE']['underlyingValue'];
+
+    });
+</script>
+
+</html>
