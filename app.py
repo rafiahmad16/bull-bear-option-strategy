@@ -21,15 +21,14 @@ def getData(expiry = None):
     returnDic = {}
     data = getNSEData()
     if 'status' in data:
-        return data
+        return jsonify(data)
     returnDic['expires'] = data['records']['expiryDates']
     if expiry is None:
         expiry = returnDic['expires'][0]
     expiryData = []
-    if 'records' in data:
-        for d in data['records']['data']:
-            if d['expiryDate'] == expiry:
-                expiryData.append(d)
+    for d in data['records']['data']:
+        if d['expiryDate'] == expiry:
+            expiryData.append(d)
         
     returnDic['symbol'] = 'NIFTY'
     returnDic['data'] = expiryData
