@@ -91,8 +91,7 @@
 
 <script>
     var expiry = "{{ request.args.get('expiry') }}";
-    localStorage.removeItem("response");
-
+    var OTHER_TOOL_BASE_URL = "http://www.mycodemyway.com/stock-markets";
 
     function getData() {
         $.ajax({
@@ -179,7 +178,11 @@
             } else {
                 c = "danger";
             }
-            html += "<td class='info'>" + v['CE']['lastPrice'] + "</td>";
+            startStrikePrice = data[initialIndex + i]['CE']['strikePrice'] - (spread*3);
+            referal_data = {"totalNumberOfShareIn1Lot":lotSize,"startStrikePrice":startStrikePrice}
+            referal_data['data'] = [[data[initialIndex + i]['CE']['strikePrice'],data[initialIndex + i]['CE']['lastPrice'],"BUY","CE","1",true],[data[initialIndex + i + steps]['CE']['strikePrice'],data[initialIndex + i + steps]['CE']['lastPrice'],"SHORT","CE","1",true]]
+            url = OTHER_TOOL_BASE_URL + "?referrer_data="+JSON.stringify(referal_data);
+            html += "<td class='info'><a target='_BLANK' href='"+url+"'>" + v['CE']['lastPrice'] + "</a></td>";
             html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
             html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
             html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
@@ -195,7 +198,11 @@
             } else {
                 c = "danger";
             }
-            html += "<td class='info'>" + v['PE']['lastPrice'] + "</td>";
+            startStrikePrice = data[initialIndex + i - steps]['PE']['strikePrice'] - (spread*3);
+            referal_data = {"totalNumberOfShareIn1Lot":lotSize,"startStrikePrice":startStrikePrice}
+            referal_data['data'] = [[data[initialIndex + i]['PE']['strikePrice'],data[initialIndex + i]['PE']['lastPrice'],"BUY","PE","1",true],[data[initialIndex + i - steps]['PE']['strikePrice'],data[initialIndex + i - steps]['PE']['lastPrice'],"SHORT","PE","1",true]]
+            url = OTHER_TOOL_BASE_URL + "?referrer_data="+JSON.stringify(referal_data);
+            html += "<td class='info'><a target='_BLANK' href='"+url+"'>" + v['PE']['lastPrice'] + "</a></td>";
             html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
             html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
             html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
