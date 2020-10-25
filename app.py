@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, session
 from argparse import ArgumentParser
 
 import requests
@@ -8,8 +8,7 @@ import json
 
 
 app = Flask(__name__,template_folder='./')
-
-EXPIRY_DATES = [22, 29]
+app.secret_key = "87503O003d95U44369G3658b42A31288831d6lu94o60803P855"
 
 @app.route('/')
 def hello_world():
@@ -20,8 +19,6 @@ def hello_world():
 def getData(expiry = None):
     returnDic = {}
     data = getNSEData()
-    if 'status' in data:
-        return jsonify(data)
     returnDic['expires'] = data['records']['expiryDates']
     if expiry is None:
         expiry = returnDic['expires'][0]
@@ -40,12 +37,20 @@ def getData(expiry = None):
 
 def getNSEData():
     url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    headers = getNSECookies()
+    if session.get('headers') is None:
+        print("adding new headers")
+        headers = getNSECookies()
+        session['headers'] = headers
+    headers = session.get('headers')
     response = requests.request("GET", url, headers=headers)
     if is_json(response.text) is False:
         print(response.text)
-        return {'status': False, 'message': 'Invalid response in api'}
+        print("Removing old headers")
+        session.pop('headers')
+        time.sleep(10)
+        getNSEData()
     return json.loads(response.text)
+    
     
 
 
@@ -56,36 +61,30 @@ def is_json(myjson):
         return False
     return True
 
+
 def getNSECookies():
-    currenttimestamp = int(time.time())
-    current_time = datetime.fromtimestamp(currenttimestamp)
-    currentDate = current_time.day
-    currentMonth = current_time.month
-    currentYear = current_time.year
-    expiryDate = EXPIRY_DATES[0]
-    for d in range(currentDate,32):
-        if d in EXPIRY_DATES:
-            expiryDate = d
-            break
-    url = "https://www.nseindia.com/get-quotes/derivatives?symbol=NIFTY&identifier=OPTIDXNIFTY"+str(expiryDate)+"-"+str(currentMonth)+"-"+str(currentYear)+"CE"+str(app.config['strike'])
+    url = app.config['url']
     headers = {
         'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36'
     }
     response = requests.request("GET", url, headers=headers)
     cookies_dic = response.cookies.get_dict()
+    print(cookies_dic)
     cookies_dic.update(headers)
     return cookies_dic
 
 
 
-
-
-
-
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('-strike')
+    parser.add_argument('-url')
     args = parser.parse_args()
-    strike = int(args.strike)
-    app.config['strike'] = '%.2f' % strike
-    app.run(host='127.0.0.1',port=1234,debug=True)
+    if args.url is None:
+        print("-url <url from nseindia.com=>Market Data=>Derivative Market >")
+    else:
+        app.config['url'] = args.url
+        app.run(host='127.0.0.1',port=9000,debug=True)
+
+    #strike = int(args.strike)
+    #app.config['url'] = '%.2f' % strike
+    
