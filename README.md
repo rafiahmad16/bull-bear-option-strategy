@@ -24,7 +24,7 @@ Feel free to fork, it is welcome for any suggestion and ideas for the improvemen
 # How to run
 
  `python app.py -url "https://www.nseindia.com/get-quotes/derivatives?symbol=NIFTY&identifier=OPTIDXNIFTY29-10-2020CE12000.00"`
-and then open [http://localhost:1234](http://localhost:1234) in your browser.
+and then open [http://localhost:1234](http://localhost:9000) in your browser.
 
 # How to get URL
 
