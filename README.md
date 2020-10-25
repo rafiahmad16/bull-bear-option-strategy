@@ -4,7 +4,7 @@
 
 # About
 
-This is a simple flask application which  scrap [nseindia](https://www.nseindia.com/market-data/equity-derivatives-watch) option chain(Only NIFTY) data and show the bull call spread and bear put spread in tabular format.
+This is a simple flask application which  scrap [nseindia](https://www.nseindia.com) option chain(Only NIFTY) data and show the bull call spread and bear put spread in tabular format.
 
 It helps traders to select the best strike price to choose among the strike prices at which derivative can be bought and short-selling
 
@@ -23,5 +23,9 @@ Feel free to fork, it is welcome for any suggestion and ideas for the improvemen
  `pip install -r requirements.txt`
 # How to run
 
- `python app.py -strike 11800`
+ `python app.py -url "https://www.nseindia.com/get-quotes/derivatives?symbol=NIFTY&identifier=OPTIDXNIFTY29-10-2020CE12000.00"`
 and then open [http://localhost:1234](http://localhost:1234) in your browser.
+
+# How to get URL
+
+Go to [NSEINDIA](https://www.nseindia.com/) select Market Data then select [Derivatives Market](https://www.nseindia.com/market-data/equity-derivatives-watch) then select any nifty index
