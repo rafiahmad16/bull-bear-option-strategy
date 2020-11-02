@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, session
+from flask import Flask, jsonify, render_template, session, request
 from argparse import ArgumentParser
 
 import requests
@@ -16,10 +16,12 @@ def hello_world():
 
 
 @app.route('/get-data',strict_slashes=False,methods=['GET'])
-def getData(expiry = None):
+def getData():
     returnDic = {}
     data = getNSEData()
     returnDic['expires'] = data['records']['expiryDates']
+    expiry = request.args.get('expiry')
+    print(expiry)
     if expiry is None:
         expiry = returnDic['expires'][0]
     expiryData = []
