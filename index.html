@@ -49,7 +49,7 @@
                     </div>
                     <div class="col-md-3">
                         <div class="form-group">
-                            <label for="expiry">Expiry</label>
+                            <label for="expiry">Expiry (<span id="days_left"></span>)</label>
                             <select class="form-control" name="expiry" id="expiry">
 
                             </select>
@@ -63,6 +63,15 @@
                             </select>
                         </div>
                     </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="spread">Strategty Type</label>
+                            <select class="form-control" name="strategy_type" id="strategy_type">
+                                <option value="short_selling">Short Selling</option>
+                                <option value="buy_option">Buy Options</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -73,16 +82,17 @@
         <div class="row">
             <h3>Detail</h3>
             <div class="col-md-12">
+                <span class="label label-danger" style="float: right;" id="last_update_time">hiii</span>
                 <table class="table table-bordered">
                     <thead>
                         <tr>
                             <th class="warning">Strike Price</th>
-                            <th colspan="5" class="warning">Bull Call Spread</th>
-                            <th colspan="5" class="warning">Bear Call Spread</th>
+                            <th colspan="6" class="warning">Bull Spread</th>
+                            <th colspan="6" class="warning">Bear Spread</th>
                         </tr>
                     </thead>
                     <tbody id="detail">
-
+                        
                     </tbody>
 
                 </table>
@@ -93,180 +103,260 @@
 
 
 <script>
-    var expiry = "{{ request.args.get('expiry') }}";
     var OTHER_TOOL_BASE_URL = "http://www.mycodemyway.com/stock-markets";
-
+    last_update_time = localStorage.getItem("last_update_time");
+    
     function getData() {
         $.ajax({
             type: "get",
-            data: {
-                expiry: expiry
-            },
             async: false,
             url: "http://" + document.location.host + "/get-data/",
             datatype: "json",
             success: function (response) {
-                //do something with response data
-                if (response.hasOwnProperty('status')) {
-                    alert("There is some error in nse api. data can not be updated.");
-                } else {
-                    $("#contractFor").html(response.symbol);
-                    $("#symbolPrice").html(response.currentPrice);
-                    /*if (expiry === '') {
-                        //addExpiryAndSpreadOptions(response);
-                    }*/
-                    addExpiryAndSpreadOptions(response);
-                    localStorage.setItem('response', JSON.stringify(response));
-                    createTable();
+                // var response = JSON.parse(response);
+                if(typeof response === 'string'){
+                    response = JSON.parse(response);
                 }
+                localStorage.setItem('response', JSON.stringify(response));
+                createTable()
+                last_update_time = new Date().toLocaleString('en-US', {day: 'numeric',year: 'numeric',month: 'long', hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+                $("#last_update_time").html(last_update_time);
+                localStorage.setItem('last_update_time', last_update_time);
 
             },
             error: function (xhr) {
                 //var json = $.parseJSON(result);
-                alert("Error");
+                if (last_update_time === null){
+                    $("#last_update_time").html("No Last Time");
+                }else{
+                    $("#last_update_time").html("Last updated: "+last_update_time + "; Error in last request");
+                }
+                
             }
         });
     }
-
+    //getData();
     function createTable() {
         response = localStorage.getItem("response");
         response = JSON.parse(response);
-        data = response.data;
-        var allStrikes = [];
-        $.each(data, function (k, v) {
-            allStrikes.push(v['strikePrice']);
-        });
-        //console.log(data);
+        all_expiry = response['records']['expiryDates']
+        addExpiry(all_expiry);
+        
+        // all local storage and variables
+        current_spread = localStorage.getItem("current_spread");
+        current_expiry = localStorage.getItem("current_expiry");
+        current_price = response['records']['underlyingValue'];
+        current_strategy = localStorage.getItem('current_strategy');
+        if(current_strategy === null){
+            current_strategy = $("#strategy_type").val();
+        }
+        $("#symbolPrice").html(current_price);
+        var today_date = new Date();
+        var expiry_date = new Date(current_expiry);
+        var one_day=1000*60*60*24;
+        days_left = Math.ceil((expiry_date.getTime()-today_date.getTime())/(one_day));
+        $("#days_left").html("Days left: "+ days_left);
+
+        
+
+        // add spread 
+        price_difference = response['filtered']['data'][1]['strikePrice'] - response['filtered']['data'][0]['strikePrice'];
+        addSpread(price_difference);
+        //end of spread logic
+
+
+        table_html = ""
+        table_html += "<tr>";
+        table_html += "<td class='warning'>Strike</td>";
+        table_html += "<td class='warning'>Strike Details</td>";
+        table_html += "<td class='warning'>LTP</td>";
+        table_html += "<td class='warning'>1 Share Loss</td>";
+        table_html += "<td class='warning'>1 Share Profit</td>";
+        table_html += "<td class='warning'>75 Share Loss</td>";
+        table_html += "<td class='warning'>75 Share Profit</td>";
+        table_html += "<td class='warning'>Strike Details</td>";
+        table_html += "<td class='warning'>LTP</td>";
+        table_html += "<td class='warning'>1 Share Loss</td>";
+        table_html += "<td class='warning'>1 Share Profit</td>";
+        table_html += "<td class='warning'>75 Share Loss</td>";
+        table_html += "<td class='warning'>75 Share Profit</td>";
+        table_html += "</tr>";
+        data = response['records']['data'];
+        expiry_data = data.filter(function (i,n){
+                return data[n].expiryDate===current_expiry;
+            });
         var closest = null;
-        var goal = response.currentPrice;
-        $.each(allStrikes, function (i, v) {
-            if (closest == null || Math.abs(v - goal) < Math.abs(closest - goal)) {
-                closest = v;
+        var goal = current_price;
+        var indexValue = 0
+        $.each(expiry_data, function (i, v) {
+            if (closest == null || Math.abs(v['strikePrice'] - goal) < Math.abs(closest - goal)) {
+                closest = v['strikePrice'];
+                indexValue = i
                 return;
             }
         });
-        indexValue = allStrikes.indexOf(closest);
         range = 7
-        selectedStrikes = data.slice(indexValue - range, indexValue + range);
-        var lotSize = $("#lotSize").val();
-        var spread = $("#spread option:selected").val();
-        spread = parseInt(spread);
-        var difference = data[1]['strikePrice'] - data[0]['strikePrice'];
-        steps = spread / difference;
-        html = "";
-        html += "<tr>";
-        html += "<td class='warning'>Strike</td>";
-        html += "<td class='warning'>LTP</td>";
-        html += "<td class='warning'>1 Share Loss</td>";
-        html += "<td class='warning'>1 Share Profit</td>";
-        html += "<td class='warning'>" + lotSize + " Share Loss</td>";
-        html += "<td class='warning'>" + lotSize + " Share Profit</td>";
-        html += "<td class='warning'>LTP</td>";
-        html += "<td class='warning'>1 Share Loss</td>";
-        html += "<td class='warning'>1 Share Profit</td>";
-        html += "<td class='warning'>" + lotSize + " Share Loss</td>";
-        html += "<td class='warning'>" + lotSize + " Share Profit</td>";
-        html += "</tr>";
+        selected_expiry_data = expiry_data.slice(indexValue - range, indexValue + range);
         initialIndex = indexValue - range;
-        $.each(selectedStrikes, function (i, v) {
-            html += "<tr>";
-            html += "<td class='warning'>" + v['strikePrice'] + "</td>";
-            //Call start
-            short = data[initialIndex + i + steps]['CE']['lastPrice'];
-            buy = data[initialIndex + i]['CE']['lastPrice'];
-            maxLoss = short - buy;
-            maxProfit = spread + maxLoss;
-            if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
-                c = "success";
-            } else {
-                c = "danger";
+        steps = current_spread / price_difference;
+        $.each(selected_expiry_data, function (i, v) {
+            if(v['strikePrice'] == closest){
+                trc = "border-bottom: 5px solid red;";
+            }else{
+                trc = "";
             }
-            startStrikePrice = data[initialIndex + i]['CE']['strikePrice'] - (spread*3);
-            referal_data = {"totalNumberOfShareIn1Lot":lotSize,"startStrikePrice":startStrikePrice}
-            referal_data['data'] = [[data[initialIndex + i]['CE']['strikePrice'],data[initialIndex + i]['CE']['lastPrice'],"BUY","CE","1",true],[data[initialIndex + i + steps]['CE']['strikePrice'],data[initialIndex + i + steps]['CE']['lastPrice'],"SHORT","CE","1",true]]
-            url = OTHER_TOOL_BASE_URL + "?referrer_data="+JSON.stringify(referal_data);
-            html += "<td class='info'><a target='_BLANK' href='"+url+"'>" + v['CE']['lastPrice'] + "</a></td>";
-            html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
-            html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
-            html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
-            html += "<td class='" + c + "'>" + (maxProfit * lotSize).toFixed(2) + "</td>";
-
-            //Put start
-            short = data[initialIndex + i - steps]['PE']['lastPrice'];
-            buy = data[initialIndex + i]['PE']['lastPrice'];
-            maxLoss = short - buy;
-            maxProfit = spread + maxLoss;
-            if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
-                c = "success";
-            } else {
-                c = "danger";
+            table_html += "<tr style='"+trc+"'>";
+            table_html += "<td class='warning'>" + v['strikePrice'] + "</td>";
+            //CE logic
+            if (current_strategy === 'short_selling'){
+                selling_strike_price = expiry_data[initialIndex + i]['strikePrice'];
+                selling_strike_price_html = '<span class="label label-danger">'+selling_strike_price+'</span>';
+                buy_strike_price = expiry_data[initialIndex + i + steps]['strikePrice'];
+                buy_strike_price_html = '<span class="label label-success">'+buy_strike_price+'</span>';
+                
+                short = parseFloat(expiry_data[initialIndex + i]['CE']['lastPrice']);
+                buy = parseFloat(expiry_data[initialIndex + i + steps]['CE']['lastPrice']);
+                maxProfit = short - buy;
+                maxLoss = maxProfit - parseFloat(current_spread);
+                if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
+                    c = "success";
+                } else {
+                    c = "danger";
+                }
+                table_html += "<td class='" + c + "'>"+selling_strike_price_html+buy_strike_price_html+"</td>";
+            }else{
+                selling_strike_price = expiry_data[initialIndex + i + steps]['strikePrice'];
+                selling_strike_price_html = '<span class="label label-danger">'+selling_strike_price+'</span>';
+                buy_strike_price = expiry_data[initialIndex + i]['strikePrice'];
+                buy_strike_price_html = '<span class="label label-success">'+buy_strike_price+'</span>';
+                short = parseFloat(expiry_data[initialIndex + i + steps]['CE']['lastPrice']);
+                buy = parseFloat(expiry_data[initialIndex + i]['CE']['lastPrice']);
+                maxLoss = short - buy;
+                maxProfit = parseFloat(current_spread) + maxLoss;
+                if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
+                    c = "success";
+                } else {
+                    c = "danger";
+                }
+                table_html += "<td class='" + c + "'>"+buy_strike_price_html+selling_strike_price_html+"</td>";
             }
-            startStrikePrice = data[initialIndex + i - steps]['PE']['strikePrice'] - (spread*3);
-            referal_data = {"totalNumberOfShareIn1Lot":lotSize,"startStrikePrice":startStrikePrice}
-            referal_data['data'] = [[data[initialIndex + i]['PE']['strikePrice'],data[initialIndex + i]['PE']['lastPrice'],"BUY","PE","1",true],[data[initialIndex + i - steps]['PE']['strikePrice'],data[initialIndex + i - steps]['PE']['lastPrice'],"SHORT","PE","1",true]]
-            url = OTHER_TOOL_BASE_URL + "?referrer_data="+JSON.stringify(referal_data);
-            html += "<td class='info'><a target='_BLANK' href='"+url+"'>" + v['PE']['lastPrice'] + "</a></td>";
-            html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
-            html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
-            html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
-            html += "<td class='" + c + "'>" + (maxProfit * lotSize).toFixed(2) + "</td>";
-            html += "</tr>";
+            
+            table_html += "<td class='" + c + "'>"+ v['CE']['lastPrice'] +"</td>";
+            table_html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
+            table_html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
+            table_html += "<td class='" + c + "'>" + (maxLoss * 75).toFixed(2) + "</td>";
+            table_html += "<td class='" + c + "'>" + (maxProfit * 75).toFixed(2) + "</td>";
+            
 
-        });
-        $("#detail").html(html);
-        //console.log(selectedStrikes);
+            //PE logic
+            if (current_strategy === 'short_selling'){
+                selling_strike_price = expiry_data[initialIndex + i]['strikePrice'];
+                selling_strike_price_html = '<span class="label label-danger">'+selling_strike_price+'</span>';
+                buy_strike_price = expiry_data[(initialIndex + i) - steps]['strikePrice'];
+                buy_strike_price_html = '<span class="label label-success">'+buy_strike_price+'</span>';
+                
+                short = parseFloat(expiry_data[initialIndex + i]['PE']['lastPrice']);
+                buy = parseFloat(expiry_data[(initialIndex + i) - steps]['PE']['lastPrice']);
+                maxProfit = short - buy;
+                maxLoss = maxProfit - parseFloat(current_spread);
+                if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
+                    c = "success";
+                } else {
+                    c = "danger";
+                }
+                table_html += "<td class='" + c + "'>"+selling_strike_price_html+buy_strike_price_html+"</td>";
+            }else{
+                selling_strike_price = expiry_data[(initialIndex + i) - steps]['strikePrice'];
+                selling_strike_price_html = '<span class="label label-danger">'+selling_strike_price+'</span>';
+                buy_strike_price = expiry_data[initialIndex + i]['strikePrice'];
+                buy_strike_price_html = '<span class="label label-success">'+buy_strike_price+'</span>';
+                short = parseFloat(expiry_data[(initialIndex + i) - steps]['PE']['lastPrice']);
+                buy = parseFloat(expiry_data[initialIndex + i]['PE']['lastPrice']);
+                maxLoss = short - buy;
+                maxProfit = parseFloat(current_spread) + maxLoss;
+                if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
+                    c = "success";
+                } else {
+                    c = "danger";
+                }
+                table_html += "<td class='" + c + "'>"+buy_strike_price_html+selling_strike_price_html+"</td>";
+            }
+
+            table_html += "<td class='" + c + "'>"+ v['PE']['lastPrice'] +"</td>";
+            table_html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
+            table_html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
+            table_html += "<td class='" + c + "'>" + (maxLoss * 75).toFixed(2) + "</td>";
+            table_html += "<td class='" + c + "'>" + (maxProfit * 75).toFixed(2) + "</td>";
+
+
+            table_html += "</tr>"
+
+        })
+        $("#detail").html(table_html);
     }
 
-    function addExpiryAndSpreadOptions(response) {
-        expires = response.expires;
+
+    function addExpiry(allExpiry){
+        current_expiry = localStorage.getItem("current_expiry");
+        if(current_expiry === null){
+            current_expiry = allExpiry[0]
+            localStorage.setItem('current_expiry', current_expiry);
+        }
         var html = "";
-        currentExpiry = "{{ request.args.get('expiry') }}";
-        $.each(expires, function (k, v) {
-            if (currentExpiry == v) {
+        $.each(allExpiry, function (k, v) {
+            if (current_expiry == v) {
                 s = "selected";
             } else {
                 s = "";
             }
-            html += "<option " + s + " value'" + v + "'>" + v + "</option>";
+            html += "<option " + s + " value='" + v + "'>" + v + "</option>";
         });
         $("#expiry").html(html);
+    }
 
-        data = response.data;
-        difference = data[1]['strikePrice'] - data[0]['strikePrice'];
-        var html = "";
-        currentSpread = "{{ request.args.get('spread') }}";
-        if (currentSpread == 'None') {
-            currentSpread = $("#spread").val();
+
+    function addSpread(price_difference){
+        j = price_difference;
+        current_spread = localStorage.getItem("current_spread");
+        if(current_spread === null){
+            current_spread = price_difference
+            localStorage.setItem('current_spread', current_spread);
         }
-        j = difference;
+        html = ""
         for (i = 0; i <= 5; i++) {
-            if (currentSpread == j) {
+            if (current_spread == j) {
                 s = "selected";
             } else {
                 s = "";
             }
-            html += "<option " + s + " value'" + j + "'>" + j + "</option>";
-            j = j + difference;
+            html += "<option " + s + " value='" + j + "'>" + j + "</option>";
+            j = j + price_difference;
             //console.log(j);
         };
         $("#spread").html(html);
-
     }
-
+    
+  
     $(document).ready(function () {
         $("#expiry").on('change', function () {
-            $("#inputForm").submit();
+            current_expiry = $(this).val();
+            localStorage.setItem('current_expiry', current_expiry);
+            createTable();
         });
+        $("#strategy_type").on('change', function () {
+            current_strategy = $(this).val();
+            localStorage.setItem('current_strategy', current_strategy);
+            createTable();
+        })
 
         $("#spread").on('change', function () {
+            current_spread = $(this).val();
+            localStorage.setItem('current_spread', current_spread);
             createTable();
         });
 
         getData();
-        setInterval(getData, 300000); //time in milliseconds
-
-        //currentPrice = data[0]['PE']['underlyingValue'];
-
+        setInterval(getData, 120000); //time in milliseconds
     });
 </script>
 
