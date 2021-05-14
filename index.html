@@ -24,6 +24,9 @@
                 border: 1px solid grey;
                 padding: 8px;
             }
+            .border {
+                border: 2px solid red;
+            }
         </style>
     </head>
 
@@ -89,8 +92,8 @@
                         <thead>
                             <tr>
                                 <th class="warning">Strike Price</th>
-                                <th colspan="6" class="warning">Bull Spread</th>
-                                <th colspan="6" class="warning">Bear Spread</th>
+                                <th colspan="7" class="warning">Bull Spread</th>
+                                <th colspan="7" class="warning">Bear Spread</th>
                             </tr>
                         </thead>
                         <tbody id="detail">
@@ -196,12 +199,14 @@
             table_html += "<td class='warning'>1 Share Profit</td>";
             table_html += "<td class='warning'>"+lotSize+" Share Loss</td>";
             table_html += "<td class='warning'>"+lotSize+" Share Profit</td>";
+            table_html += "<td class='warning'>Breakeven</td>";
             table_html += "<td class='warning'>Strike Details</td>";
             table_html += "<td class='warning'>LTP</td>";
             table_html += "<td class='warning'>1 Share Loss</td>";
             table_html += "<td class='warning'>1 Share Profit</td>";
             table_html += "<td class='warning'>"+lotSize+" Share Loss</td>";
             table_html += "<td class='warning'>"+lotSize+" Share Profit</td>";
+            table_html += "<td class='warning'>Breakeven</td>";
             table_html += "</tr>";
             data = response['records']['data'];
             expiry_data = data.filter(function (i, n) {
@@ -219,6 +224,29 @@
             });
             range = 7
             selected_expiry_data = expiry_data.slice(indexValue - range, indexValue + range);
+            upside_expiry_data = selected_expiry_data.slice(0, range+1)
+            ce_up_open_intreset = -1
+            pe_up_open_intreset = -1
+            $.each(upside_expiry_data, function (i, v) {
+                if(v['CE']['openInterest'] >= ce_up_open_intreset){
+                    ce_up_open_intreset = v['CE']['openInterest']
+                }
+                if(v['PE']['openInterest'] >= pe_up_open_intreset){
+                    pe_up_open_intreset = v['PE']['openInterest']
+                }
+            });
+
+            downside_expiry_data = selected_expiry_data.slice(range+1, range+range)
+            ce_down_open_intreset = -1
+            pe_down_open_intreset = -1
+            $.each(downside_expiry_data, function (i, v) {
+                if(v['CE']['openInterest'] >= ce_down_open_intreset){
+                    ce_down_open_intreset = v['CE']['openInterest']
+                }
+                if(v['PE']['openInterest'] >= pe_down_open_intreset){
+                    pe_down_open_intreset = v['PE']['openInterest']
+                }
+            });
             
             // add spread 
             price_difference = selected_expiry_data[1]['strikePrice'] - selected_expiry_data[0]['strikePrice'];
@@ -252,6 +280,7 @@
                     } else {
                         c = "danger";
                     }
+                    breakeven = parseInt(selling_strike_price+(short-buy))
                     referal_data = {"totalNumberOfShareIn1Lot": lotSize, "startStrikePrice": expiry_data[initialIndex]['strikePrice']};
                     referal_data['data'] = [[expiry_data[initialIndex + i]['CE']['strikePrice'], expiry_data[initialIndex + i]['CE']['lastPrice'], "SHORT", "CE", "1", true], [expiry_data[initialIndex + i + steps]['CE']['strikePrice'], expiry_data[initialIndex + i + steps]['CE']['lastPrice'], "BUY", "CE", "1", true]];
                     url = OTHER_TOOL_BASE_URL + "?referrer_data=" + JSON.stringify(referal_data);
@@ -266,6 +295,7 @@
                     buy = parseFloat(expiry_data[initialIndex + i]['CE']['lastPrice']);
                     maxLoss = short - buy;
                     maxProfit = parseFloat(current_spread) + maxLoss;
+                    breakeven = parseInt(buy_strike_price+(buy-short))
                     if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
                         c = "success";
                     } else {
@@ -276,13 +306,22 @@
                     url = OTHER_TOOL_BASE_URL + "?referrer_data=" + JSON.stringify(referal_data);
                     table_html += "<td class='" + c + "'>" + buy_strike_price_html + selling_strike_price_html + "</td>";
                 }
+                oi_class = ""
+                if((ce_up_open_intreset == v['CE']['openInterest']) || (ce_down_open_intreset == v['CE']['openInterest'])){
+                    oi_class = "border";
+                }
 
-                table_html += "<td class='" + c + "'><a href='" + url + "' target='_BLANK'>" + v['CE']['lastPrice'] + "</a></td>";
+                table_html += "<td class='" + c + "'><a class='"+oi_class+"' href='" + url + "' target='_BLANK'>" + v['CE']['lastPrice'] + "</a></td>";
                 table_html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
                 table_html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
                 table_html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
                 table_html += "<td class='" + c + "'>" + (maxProfit * lotSize).toFixed(2) + "</td>";
-
+                table_html += "<td class='" + c + "'>" + breakeven + "</td>";
+                
+                oi_class = ""
+                if((pe_up_open_intreset == v['PE']['openInterest']) || (pe_down_open_intreset == v['PE']['openInterest'])){
+                    oi_class = "border";
+                }
 
                 //PE logic
                 if (current_strategy === 'short_selling') {
@@ -295,6 +334,7 @@
                     buy = parseFloat(expiry_data[(initialIndex + i) - steps]['PE']['lastPrice']);
                     maxProfit = short - buy;
                     maxLoss = maxProfit - parseFloat(current_spread);
+                    breakeven = parseInt(selling_strike_price-(short-buy))
                     if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
                         c = "success";
                     } else {
@@ -313,6 +353,7 @@
                     short = parseFloat(expiry_data[(initialIndex + i) - steps]['PE']['lastPrice']);
                     buy = parseFloat(expiry_data[initialIndex + i]['PE']['lastPrice']);
                     maxLoss = short - buy;
+                    breakeven = parseInt(buy_strike_price-(buy-short))
                     maxProfit = parseFloat(current_spread) + maxLoss;
                     if (Math.abs(maxProfit) >= Math.abs(maxLoss)) {
                         c = "success";
@@ -325,11 +366,12 @@
                 
                     table_html += "<td class='" + c + "'>" + buy_strike_price_html + selling_strike_price_html + "</td>";
                 }
-                table_html += "<td class='" + c + "'><a href='" + url + "' target='_BLANK'>" + v['PE']['lastPrice'] + "</a></td>";
+                table_html += "<td class='" + c + "'><a class='"+oi_class+"' href='" + url + "' target='_BLANK'>" + v['PE']['lastPrice'] + "</a></td>";
                 table_html += "<td class='" + c + "'>" + maxLoss.toFixed(2) + "</td>";
                 table_html += "<td class='" + c + "'>" + maxProfit.toFixed(2) + "</td>";
                 table_html += "<td class='" + c + "'>" + (maxLoss * lotSize).toFixed(2) + "</td>";
                 table_html += "<td class='" + c + "'>" + (maxProfit * lotSize).toFixed(2) + "</td>";
+                table_html += "<td class='" + c + "'>" + breakeven + "</td>";
 
 
                 table_html += "</tr>"
